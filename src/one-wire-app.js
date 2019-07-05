@@ -41,24 +41,36 @@ function OneWire() {
                             node.addEndpoint(owAddress+"."+actualItem, {
                                     type: 'float',
                                     read: function(args, peer, cb) {
-                                        owCon.read(device + "/"+actualItem, function(err, result){
-                                            cb(null, result);
-                                        })
+                                        console.log("(read)");
+                                        ((callback) => {
+                                            owCon.read(device + "/"+actualItem, function(err, result){
+                                            
+                                                callback(null, result);
+                                            })
+                                            
+                                        })(cb);
+                                        
 
                                     }
                             });
+                            
                         })(l);
                     }
+                    
                 });
+                setInterval(function() { node.changed(owAddress+".temperature"); }, 10000);
+                
                 
                 
             })(d);
             
         }
+        
+        
     });
     
-    // add readable and writable `number` endpoint
-    
+    // add a last "dummy" endpoint. This is to prevent follow issue in mist-api 0.12.0.
+    setInterval(function() { node.addEndpoint('dummyLastOne', { type: 'string' }) }, 1000);  //FIXME
 }
 
 module.exports = {

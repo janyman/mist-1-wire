@@ -1,0 +1,22 @@
+{
+  "name": "mist-1-wire",
+  "version": "0.1.0",
+  "description": "Mist application for 1-wire devices, using owfs",
+  "main": "run.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "1-wire",
+    "mist",
+    "mist-api",
+    "one-wire",
+    "owfs"
+  ],
+  "author": "Jan Nyman",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "mist-api": "^0.12.3",
+    "owfs": "^0.4.0"
+  }
+}

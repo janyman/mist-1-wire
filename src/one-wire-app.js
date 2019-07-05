@@ -21,16 +21,28 @@ function OneWire() {
       
         console.log("saw:", directories);
         for (d of directories) {
+            
+            
             ((device) => {
-                node.addEndpoint('temperature', {
-                    type: 'float',
-                    read: function(args, peer, cb) {
-                        owCon.read(device + "/temperature", function(err, result){
-                            cb(null, result);
-                        })
-                        
-                    }
+                var owAddress = device.split('/')[1];
+                owAddress = owAddress.replace('.', '_');
+                console.log(owAddress);
+                
+                node.addEndpoint(owAddress, {
+                    type: 'string'
                 });
+                
+                node.addEndpoint(owAddress+".temperature", {
+                        type: 'float',
+                        read: function(args, peer, cb) {
+                            owCon.read(device + "/temperature", function(err, result){
+                                cb(null, result);
+                            })
+
+                        }
+                });
+                
+                
             })(d);
             
         }

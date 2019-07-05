@@ -18,28 +18,37 @@ function OneWire() {
     
 
     owCon.dir("/", function(err, directories){
-      
-        console.log("saw:", directories);
+        if (!directories) {
+            return;
+        }
         for (d of directories) {
-            
-            
             ((device) => {
                 var owAddress = device.split('/')[1];
                 owAddress = owAddress.replace('.', '_');
-                console.log(owAddress);
+                console.log("Registering 1-wire device with address ", owAddress);
                 
+                // First register the device address as endpoint
                 node.addEndpoint(owAddress, {
                     type: 'string'
                 });
                 
-                node.addEndpoint(owAddress+".temperature", {
-                        type: 'float',
-                        read: function(args, peer, cb) {
-                            owCon.read(device + "/temperature", function(err, result){
-                                cb(null, result);
-                            })
+                // Then register all the sub-items or "infoitems" that owserver automatically creates
+                owCon.dirall(device, function(err, listing) {
+                    for (l of listing) {
+                        ((item) => {
+                            var actualItem = item.split('/')[2]; //The elements of the listing are like '/10.ADSA232321/temperaure', we want the last piece.
+                           
+                            node.addEndpoint(owAddress+"."+actualItem, {
+                                    type: 'float',
+                                    read: function(args, peer, cb) {
+                                        owCon.read(device + "/"+actualItem, function(err, result){
+                                            cb(null, result);
+                                        })
 
-                        }
+                                    }
+                            });
+                        })(l);
+                    }
                 });
                 
                 

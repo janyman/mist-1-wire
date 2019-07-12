@@ -47,29 +47,9 @@ function scanBus(node) {
                                 console.log("Error when listing 1-wire devices.");
                                 return;
                             }
-                            /*
-                            node.addEndpoint(owAddress + "." + actualItem, {
-                                type: 'float',
-                                read: function (args, peer, cb) {
-                                    ((callback) => {
-                                        owCon.read(device + "/" + actualItem, function (err, result) {
-                                            if (err) {
-                                                //console.log("1-wire error", err, result);
-                                                callback({code: 1, msg: "1-wire read error"});
-                                                return;
-                                            }
-                                            callback(null, result);
-                                        })
 
-                                    })(cb);
-
-
-                                }
-                            });
-                            */
                            
                            node.addEndpoint(owAddress+"."+actualItem, {type:'float', read:true});
-                           var isDirectory = false;
                            owCon.dirall(l, function (err, listing2) {
                                 if (!listing2) {
                                     console.log("l is null: ", item, owAddress, actualItem);
@@ -77,7 +57,7 @@ function scanBus(node) {
                                         owCon.read("/" + owAddress.replace("_", ".") + "/" + actualItem, function (err, result) {
                                                      if (err) {
                                                          console.log("1-wire error", err, result);
-                                                         cb({code: 1, msg: "1-wire read error"});
+                                                         cb({code: 1, msg: "1-wire read error " + err.options.path});
                                                          return;
                                                      }
                                                      cb(null, result);
@@ -90,16 +70,18 @@ function scanBus(node) {
                                     if (!item2) {
                                         continue;
                                     }
-                                    isDirectory = true
                                     var actualItem2 = item2.split('/')[3];
-                                    node.addEndpoint(owAddress+"."+actualItem+"."+actualItem2, {
+                                    actualItem2endpointId = actualItem2.split('.').join('_');
+                                    
+                                    node.addEndpoint(owAddress+"."+actualItem+"."+ actualItem2endpointId, {
                                         type: 'float',
                                         read: function (args, peer, cb) {
                                              ((callback) => {
+                                                 
                                                  owCon.read(device + "/" + actualItem + "/" + actualItem2, function (err, result) {
                                                      if (err) {
-                                                         //console.log("1-wire error", err, result);
-                                                         callback({code: 1, msg: "1-wire read error"});
+                                                         console.log("1-wire error", err, result);
+                                                         callback({code: 1, msg: "1-wire read error: " + err.options.path});
                                                          return;
                                                      }
                                                      callback(null, result);
@@ -110,22 +92,7 @@ function scanBus(node) {
 
                                          }
                                     });
-                                    if (!isDirectory) {
-                                        node.read(owAddress+"."+actualItem, function (args, peer, cb) {
-                                             ((callback) => {
-                                                 owCon.read(device + "/" + actualItem, function (err, result) {
-                                                     if (err) {
-                                                         //console.log("1-wire error", err, result);
-                                                         callback({code: 1, msg: "1-wire read error"});
-                                                         return;
-                                                     }
-                                                     callback(null, result);
-                                                 })
-
-                                             })(cb);
-                                         });
-
-                                    }
+                                        
                                 }
                            });
 
@@ -148,7 +115,7 @@ function scanBus(node) {
             if (!newDeviceSet.has(dev)) {
                 var owAddr = dev.split('/')[1].replace('.', '_');
                 node.removeEndpoint(owAddr);
-                console.log("Removing: ", owAddr, " (but won't!)");
+                console.log("Removing: ", owAddr);
             }
         }
         deviceSet = newDeviceSet;

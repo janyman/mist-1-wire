@@ -9,9 +9,13 @@ if (!process.env.NAME) { console.log('Use: NAME="OneWire n+1" to run several ins
 
 var deviceSet = new Set();
 
+function owfs2endpointId(owAddress) {
+    
+}
+
 function scanBus(node) {
     var newDeviceSet = new Set();
-    owCon.dir("/", function (err, directories) {
+    owCon.dirall("/", function (err, directories) {
         if (!directories) {
             return;
         }
@@ -37,12 +41,16 @@ function scanBus(node) {
                 owCon.dirall(device, function (err, listing) {
                     for (var l of listing) {
                         ((item) => {
+                            console.log(l);
                             var actualItem = item.split('/')[2]; //The elements of the listing are like '/10.ADSA232321/temperaure', we want the last piece.
-
+                            if (!actualItem) {
+                                console.log("Error when listing 1-wire devices.");
+                                return;
+                            }
+                            /*
                             node.addEndpoint(owAddress + "." + actualItem, {
                                 type: 'float',
                                 read: function (args, peer, cb) {
-                                    console.log("(read)");
                                     ((callback) => {
                                         owCon.read(device + "/" + actualItem, function (err, result) {
                                             if (err) {
@@ -58,6 +66,68 @@ function scanBus(node) {
 
                                 }
                             });
+                            */
+                           
+                           node.addEndpoint(owAddress+"."+actualItem, {type:'float', read:true});
+                           var isDirectory = false;
+                           owCon.dirall(l, function (err, listing2) {
+                                if (!listing2) {
+                                    console.log("l is null: ", item, owAddress, actualItem);
+                                    node.read(owAddress + "." + actualItem, function(args, peer, cb) {
+                                        owCon.read("/" + owAddress.replace("_", ".") + "/" + actualItem, function (err, result) {
+                                                     if (err) {
+                                                         console.log("1-wire error", err, result);
+                                                         cb({code: 1, msg: "1-wire read error"});
+                                                         return;
+                                                     }
+                                                     cb(null, result);
+                                                 })
+                                    })
+                                    return;
+                                }
+                                for (item2 of listing2) {
+                                    console.log(item2);
+                                    if (!item2) {
+                                        continue;
+                                    }
+                                    isDirectory = true
+                                    var actualItem2 = item2.split('/')[3];
+                                    node.addEndpoint(owAddress+"."+actualItem+"."+actualItem2, {
+                                        type: 'float',
+                                        read: function (args, peer, cb) {
+                                             ((callback) => {
+                                                 owCon.read(device + "/" + actualItem + "/" + actualItem2, function (err, result) {
+                                                     if (err) {
+                                                         //console.log("1-wire error", err, result);
+                                                         callback({code: 1, msg: "1-wire read error"});
+                                                         return;
+                                                     }
+                                                     callback(null, result);
+                                                 })
+
+                                             })(cb);
+
+
+                                         }
+                                    });
+                                    if (!isDirectory) {
+                                        node.read(owAddress+"."+actualItem, function (args, peer, cb) {
+                                             ((callback) => {
+                                                 owCon.read(device + "/" + actualItem, function (err, result) {
+                                                     if (err) {
+                                                         //console.log("1-wire error", err, result);
+                                                         callback({code: 1, msg: "1-wire read error"});
+                                                         return;
+                                                     }
+                                                     callback(null, result);
+                                                 })
+
+                                             })(cb);
+                                         });
+
+                                    }
+                                }
+                           });
 
                         })(l);
                     }
@@ -77,7 +147,7 @@ function scanBus(node) {
         for (var dev of deviceSet) {
             if (!newDeviceSet.has(dev)) {
                 var owAddr = dev.split('/')[1].replace('.', '_');
-                //node.removeEndpoint(owAddr);
+                node.removeEndpoint(owAddr);
                 console.log("Removing: ", owAddr, " (but won't!)");
             }
         }
@@ -100,9 +170,6 @@ function OneWire() {
     scanBus(node);
         
     setInterval(function () { scanBus(node); }, 10000);
-    
-    // add a last "dummy" endpoint. This is to prevent follow issue in mist-api 0.12.0.
-    setTimeout(function() { node.addEndpoint('dummyLastOne', { type: 'string' }) }, 1000);  //FIXME
 }
 
 module.exports = {

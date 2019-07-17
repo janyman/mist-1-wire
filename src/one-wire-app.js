@@ -9,9 +9,11 @@ if (!process.env.NAME) { console.log('Use: NAME="OneWire n+1" to run several ins
 
 var deviceSet = new Set();
 
-function owfs2endpointId(owAddress) {
-    
-}
+var dataCache = {};
+
+var pollInterval = 10000;
+
+var pollIntervals = {};
 
 function scanBus(node) {
     var newDeviceSet = new Set();
@@ -32,16 +34,100 @@ function scanBus(node) {
                 owAddress = owAddress.replace('.', '_');
                 console.log("Registering 1-wire device with address ", owAddress);
 
+                
+                
+                owCon.read(device + '/type', function (err, deviceType) {
+                    console.log(deviceType);
+                    var endpointPrefix = owAddress;
+                    node.addEndpoint(endpointPrefix, {type: 'string'});
+                    
+                    switch (deviceType) {
+                        case 'DS18B20':
+
+                            node.addEndpoint(endpointPrefix + ".temperature", {
+                                type: 'float',
+                                read: function (args, peer, cb) {
+                                    ((callback) => {
+
+                                        owCon.read(device + "/temperature", function (err, result) {
+                                            if (err) {
+                                                console.log("1-wire error", err, result);
+                                                callback({code: 1, msg: "1-wire read error: " + err.options.path});
+                                                return;
+                                            }
+                                            callback(null, parseFloat(result));
+                                        })
+
+                                    })(cb);
+
+
+                                }
+                            });
+                            pollIntervals[device] = setInterval(function () {
+                                node.changed(endpointPrefix + ".temperature");
+                            }, pollInterval);
+                            break;
+                        case 'DS2438':
+                            /* Always assume that these devices are of type MS-TH (newer model) */
+                            node.addEndpoint(endpointPrefix + ".relativeHumidity", {
+                                type: 'float',
+                                read: function (args, peer, cb) {
+                                    ((callback) => {
+
+                                        owCon.read(device + "/HIH4000/humidity", function (err, result) {
+                                            if (err) {
+                                                console.log("1-wire error", err, result);
+                                                callback({code: 1, msg: "1-wire read error: " + err.options.path});
+                                                return;
+                                            }
+                                            callback(null, parseFloat(result));
+                                        })
+
+                                    })(cb);
+
+
+                                }
+                            });
+                            
+                            node.addEndpoint(endpointPrefix + ".temperature", {
+                                type: 'float',
+                                read: function (args, peer, cb) {
+                                    ((callback) => {
+
+                                        owCon.read(device + "/temperature", function (err, result) {
+                                            if (err) {
+                                                console.log("1-wire error", err, result);
+                                                callback({code: 1, msg: "1-wire read error: " + err.options.path});
+                                                return;
+                                            }
+                                            callback(null, parseFloat(result));
+                                        })
+
+                                    })(cb);
+
+
+                                }
+                            });
+                            pollIntervals[device] = setInterval(function () {
+                                node.changed(endpointPrefix + ".relativeHumidity");
+                                node.changed(endpointPrefix + ".temperature");
+                            }, pollInterval);
+                    }
+                });
+                
+                return;
+                /* Unreachable */
+                
                 // First register the device address as endpoint
                 node.addEndpoint(owAddress, {
                     type: 'string'
                 });
-
+                
                 // Then register all the sub-items or "infoitems" that owserver automatically creates
                 owCon.dirall(device, function (err, listing) {
                     for (var l of listing) {
                         ((item) => {
-                            console.log(l);
+                            //console.log(l);
                             var actualItem = item.split('/')[2]; //The elements of the listing are like '/10.ADSA232321/temperaure', we want the last piece.
                             if (!actualItem) {
                                 console.log("Error when listing 1-wire devices.");
@@ -52,7 +138,7 @@ function scanBus(node) {
                            node.addEndpoint(owAddress+"."+actualItem, {type:'float', read:true});
                            owCon.dirall(l, function (err, listing2) {
                                 if (!listing2) {
-                                    console.log("l is null: ", item, owAddress, actualItem);
+                                    //console.log("l is null: ", item, owAddress, actualItem);
                                     node.read(owAddress + "." + actualItem, function(args, peer, cb) {
                                         owCon.read("/" + owAddress.replace("_", ".") + "/" + actualItem, function (err, result) {
                                                      if (err) {
@@ -66,7 +152,7 @@ function scanBus(node) {
                                     return;
                                 }
                                 for (item2 of listing2) {
-                                    console.log(item2);
+                                    //console.log(item2);
                                     if (!item2) {
                                         continue;
                                     }
@@ -115,6 +201,10 @@ function scanBus(node) {
             if (!newDeviceSet.has(dev)) {
                 var owAddr = dev.split('/')[1].replace('.', '_');
                 node.removeEndpoint(owAddr);
+                console.log(typeof pollIntervals[dev]);
+                if (pollIntervals[dev]) {
+                    clearInterval(pollIntervals[dev]);
+                }
                 console.log("Removing: ", owAddr);
             }
         }
